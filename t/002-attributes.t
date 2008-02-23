@@ -108,7 +108,8 @@ my %attributes = map { $_ => $meta->get_attribute($_) }
   {
    'info' => {
               'reader' => 'attr7',
-              'writer' => '_attr7'
+              'writer' => '_attr7',
+              'constructor key' => '-attr7',
              },
    'name' => 'attr7',
    'description' => 'Optional value'

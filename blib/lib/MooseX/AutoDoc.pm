@@ -249,6 +249,8 @@ sub attribute_info{
     $info->{reader} = $attr->reader     if $attr->has_reader;
     $info->{accessor} = $attr->accessor if $attr->has_accessor;
   }
+  $info->{'constructor key'} = $attr->init_arg
+    if $attr->has_init_arg && $attr->init_arg ne $attr_name;
 
   if( defined(my $lazy = $attr->is_lazy) ){
     $description .= 'lazy-building ';

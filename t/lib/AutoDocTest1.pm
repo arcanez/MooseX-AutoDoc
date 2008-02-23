@@ -8,7 +8,7 @@ has attr3 => (is => 'rw', isa => 'ArrayRef[Str]');
 has attr4 => (is => 'rw', isa => 'ArrayRef[Str]', required => 1);
 has attr5 => (is => 'rw', isa => 'ArrayRef[Str]', required => 1, auto_deref => 1);
 has attr6 => (is => 'rw', lazy_build => 1);
-has attr7 => (reader => 'attr7', writer => '_attr7');
+has attr7 => (reader => 'attr7', writer => '_attr7', init_arg => '-attr7');
 
 sub foo {
 
