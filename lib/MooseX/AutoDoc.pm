@@ -77,7 +77,7 @@ sub generate_pod_for {
        "if ${package} is the consumer of any roles.")
     if Class::MOP::is_class_loaded( $package );
 
-  my $spec = $self->package_info($package);
+  my $spec = $self->_package_info($package);
   my $key = $package->meta->isa("Moose::Meta::Role") ? 'role' : 'class';
   my $vars = {
               $key    => $spec,
