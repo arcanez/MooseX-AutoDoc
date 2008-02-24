@@ -11,6 +11,7 @@
 #   MakeMaker Parameters:
 
 #     ABSTRACT => q[Automatically generate documentation stubs for Moose-based classes.]
+#     AUTHOR => q[=over 4]
 #     DIR => []
 #     DISTNAME => q[MooseX-AutoDoc]
 #     NAME => q[MooseX::AutoDoc]
@@ -162,7 +163,8 @@ C_FILES  =
 O_FILES  = 
 H_FILES  = 
 MAN1PODS = 
-MAN3PODS = lib/MooseX/AutoDoc/View/TT.pm
+MAN3PODS = lib/MooseX/AutoDoc.pm \
+	lib/MooseX/AutoDoc/View/TT.pm
 
 # Where is the Config information that we are using/depend on
 CONFIGDEP = $(PERL_ARCHLIB)$(DFSEP)Config.pm $(PERL_INC)$(DFSEP)config.h
@@ -186,9 +188,12 @@ PERL_ARCHIVE_AFTER =
 
 TO_INST_PM = lib/MooseX/AutoDoc.pm \
 	lib/MooseX/AutoDoc/View.pm \
-	lib/MooseX/AutoDoc/View/TT.pm
+	lib/MooseX/AutoDoc/View/TT.pm \
+	make_docs.pl
 
-PM_TO_BLIB = lib/MooseX/AutoDoc/View/TT.pm \
+PM_TO_BLIB = make_docs.pl \
+	$(INST_LIB)/MooseX/make_docs.pl \
+	lib/MooseX/AutoDoc/View/TT.pm \
 	blib/lib/MooseX/AutoDoc/View/TT.pm \
 	lib/MooseX/AutoDoc/View.pm \
 	blib/lib/MooseX/AutoDoc/View.pm \
@@ -413,9 +418,11 @@ POD2MAN = $(POD2MAN_EXE)
 
 
 manifypods : pure_all  \
-	lib/MooseX/AutoDoc/View/TT.pm
+	lib/MooseX/AutoDoc/View/TT.pm \
+	lib/MooseX/AutoDoc.pm
 	$(NOECHO) $(POD2MAN) --section=3 --perm_rw=$(PERM_RW) \
-	  lib/MooseX/AutoDoc/View/TT.pm $(INST_MAN3DIR)/MooseX::AutoDoc::View::TT.$(MAN3EXT) 
+	  lib/MooseX/AutoDoc/View/TT.pm $(INST_MAN3DIR)/MooseX::AutoDoc::View::TT.$(MAN3EXT) \
+	  lib/MooseX/AutoDoc.pm $(INST_MAN3DIR)/MooseX::AutoDoc.$(MAN3EXT) 
 
 
 
@@ -771,7 +778,7 @@ ppd :
 	$(NOECHO) $(ECHO) '<SOFTPKG NAME="$(DISTNAME)" VERSION="undef,0,0,0">' > $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '    <TITLE>$(DISTNAME)</TITLE>' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '    <ABSTRACT>Automatically generate documentation stubs for Moose-based classes.</ABSTRACT>' >> $(DISTNAME).ppd
-	$(NOECHO) $(ECHO) '    <AUTHOR></AUTHOR>' >> $(DISTNAME).ppd
+	$(NOECHO) $(ECHO) '    <AUTHOR>=over 4</AUTHOR>' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '    <IMPLEMENTATION>' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '        <DEPENDENCY NAME="Moose" VERSION="0,36,0,0" />' >> $(DISTNAME).ppd
 	$(NOECHO) $(ECHO) '        <DEPENDENCY NAME="Template" VERSION="0,0,0,0" />' >> $(DISTNAME).ppd
@@ -787,6 +794,7 @@ ppd :
 
 pm_to_blib : $(TO_INST_PM)
 	$(NOECHO) $(ABSPERLRUN) -MExtUtils::Install -e 'pm_to_blib({@ARGV}, '\''$(INST_LIB)/auto'\'', '\''$(PM_FILTER)'\'')' -- \
+	  make_docs.pl $(INST_LIB)/MooseX/make_docs.pl \
 	  lib/MooseX/AutoDoc/View/TT.pm blib/lib/MooseX/AutoDoc/View/TT.pm \
 	  lib/MooseX/AutoDoc/View.pm blib/lib/MooseX/AutoDoc/View.pm \
 	  lib/MooseX/AutoDoc.pm blib/lib/MooseX/AutoDoc.pm 

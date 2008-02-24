@@ -9,7 +9,7 @@ use lib "$Bin/lib";
 use Test::More tests => 1;
 
 my $autodoc = MooseX::AutoDoc->new;
-my $spec = $autodoc->class_info("AutoDocTest2");
+my $spec = $autodoc->_class_info("AutoDocTest2");
 
 my $target = {
                name => 'AutoDocTest2',

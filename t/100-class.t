@@ -8,7 +8,7 @@ use lib "$Bin/lib";
 use Test::More tests => 1;
 
 my $autodoc = MooseX::AutoDoc->new;
-my $spec = $autodoc->class_info("AutoDocTest1");
+my $spec = $autodoc->_class_info("AutoDocTest1");
 
 #we already tested this..
 delete $spec->{attributes};

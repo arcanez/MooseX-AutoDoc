@@ -1,11 +1,12 @@
 --- 
 abstract: Automatically generate documentation stubs for Moose-based classes.
-author: ~
+author: 
+  - =over 4
 build_requires: 
   Test::More: 0
 distribution_type: module
 generated_by: Module::Install version 0.68
-license: unknown
+license: perl
 meta-spec: 
   url: http://module-build.sourceforge.net/META-spec-v1.3.html
   version: 1.3

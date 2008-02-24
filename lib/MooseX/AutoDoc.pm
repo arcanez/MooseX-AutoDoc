@@ -51,7 +51,6 @@ sub _build_tc_to_lib_map {
 
 sub _build_ignored_method_metaclasses {
   return {
-          'Moose::Meta::Role::Method'        => 1,
           'Moose::Meta::Method::Accessor'    => 1,
           'Moose::Meta::Method::Constructor' => 1,
           'Class::MOP::Method::Accessor'     => 1,
@@ -59,8 +58,10 @@ sub _build_ignored_method_metaclasses {
           'Class::MOP::Method::Constructor'  => 1,
          };
 
+#          'Moose::Meta::Role::Method'        => 1,
 #          'Moose::Meta::Method::Overridden'  => 1,
 #          'Class::MOP::Method::Wrapped'      => 1,
+
 }
 
 sub _build_license_text {
@@ -105,7 +106,7 @@ sub generate_pod_for_class {
 
 
 # *_info methods
-sub role_info {
+sub _role_info {
   my ($self, $role) = @_;
 
   my (@roles_to_apply, $rmeta, $original_apply);
@@ -129,15 +130,13 @@ sub role_info {
 
   my @attributes = map{ $anon->get_attribute($_) } sort $anon->get_attribute_list;
 
-  my %ignored_method_metaclasses = %{ $self->ignored_method_metaclasses };
-  delete $ignored_method_metaclasses{'Moose::Meta::Role::Method'};
   my @methods =
-    grep{ ! exists $ignored_method_metaclasses{$_->meta->name} }
+    grep{ ! exists $self->ignored_method_metaclasses->{$_->meta->name} }
       map { $anon->get_method($_) }
         grep { $_ ne 'meta' }    #it wasnt getting filtered on the anon class..
           sort $anon->get_method_list;
-  my @method_specs     = map{ $self->method_info($_)        } @methods;
-  my @attribute_specs  = map{ $self->attribute_info($_)     } @attributes;
+  my @method_specs     = map{ $self->_method_info($_)        } @methods;
+  my @attribute_specs  = map{ $self->_attribute_info($_)     } @attributes;
 
   { #fix Moose::Meta::Role and apply the roles that were delayed
     $rmeta->remove_method("apply");
@@ -151,7 +150,7 @@ sub role_info {
       map { $_->isa("Moose::Meta::Role::Composite") ? @{$_->get_roles} : $_ }
         @{ $meta->get_roles };
 
-  my @role_specs = map{ $self->consumed_role_info($_) } @roles;
+  my @role_specs = map{ $self->_consumed_role_info($_) } @roles;
 
   my $spec = {
               name         => $meta->name,
@@ -164,7 +163,7 @@ sub role_info {
 }
 
 
-sub class_info {
+sub _class_info {
   my ($self, $class) = @_;
 
   my (@roles_to_apply, $rmeta, $original_apply);
@@ -194,9 +193,9 @@ sub class_info {
         grep { $_ ne 'meta' }    #it wasnt getting filtered on the anon class..
           sort $meta->get_method_list;
 
-  my @method_specs     = map{ $self->method_info($_)        } @methods;
-  my @attribute_specs  = map{ $self->attribute_info($_)     } @attributes;
-  my @superclass_specs = map{ $self->superclass_info($_)    } @superclasses;
+  my @method_specs     = map{ $self->_method_info($_)        } @methods;
+  my @attribute_specs  = map{ $self->_attribute_info($_)     } @attributes;
+  my @superclass_specs = map{ $self->_superclass_info($_)    } @superclasses;
 
   { #fix Moose::Meta::Role and apply the roles that were delayed
     $rmeta->remove_method("apply");
@@ -208,7 +207,7 @@ sub class_info {
   my @roles = sort{ $a->name cmp $b->name }
     map { $_->isa("Moose::Meta::Role::Composite") ? @{$_->get_roles} : $_ }
       @{ $meta->roles };
-  my @role_specs = map{ $self->consumed_role_info($_) } @roles;
+  my @role_specs = map{ $self->_consumed_role_info($_) } @roles;
 
   my $spec = {
               name         => $meta->name,
@@ -221,7 +220,7 @@ sub class_info {
   return $spec;
 }
 
-sub attribute_info{
+sub _attribute_info{
   my($self, $attr) = @_;;
   my $attr_name = $attr->name;
   my $spec = { name => $attr_name };
@@ -294,19 +293,19 @@ sub attribute_info{
   return $spec;
 }
 
-sub superclass_info {
+sub _superclass_info {
   my($self, $superclass) = @_;
   my $spec = { name => $superclass->name };
   return $spec;
 }
 
-sub method_info {
+sub _method_info {
   my($self, $method) = @_;
   my $spec = { name => $method->name };
   return $spec;
 }
 
-sub consumed_role_info {
+sub _consumed_role_info {
   my($self, $role) = @_;;
   my $spec = { name => $role->name };
   return $spec;
@@ -316,5 +315,211 @@ sub consumed_role_info {
 
 __END__;
 
+=head1 NAME
 
+MooseX::AutoDoc - Automatically generate documentation for Moose-based classes
 
+=head1 SYNOPSYS
+
+    use MooseX::AutoDoc;
+    my $autodoc = MooseX::AutoDoc->new
+      (
+       authors =>
+        [
+         {
+          name => "Guillermo Roditi",
+          email => 'groditi@cpan.org',
+          handle => "groditi",
+         }
+        ],
+      );
+
+    my $class_pod = $autodoc->generate_pod_for_class("MyClass");
+    my $role_pod  = $autodoc->generate_pod_for_role("MyRole");
+
+=head1 DESCRIPTION
+
+MooseX::AutoDoc allows you to automatically generate POD documentation from
+your Moose based objects by introspecting them and creating a
+
+=head1 NOTICE REGARDING ROLE CONSUMPTION
+
+To accurantely detect which methods and attributes are part of the class / role
+being examined and which are part of a consumed role the
+L</"generate_pod_for_role"> and  L</"generate_pod_for_class"> methods need to
+delay role consumption. If your role or class has been loaded prior to calling
+these methods you run a risk of recieving inacurate data and a warning will be
+emitted.
+
+=head1 ATTRIBUTES
+
+Unless noted otherwise, you may set any of these attributes at C<new> time by
+passing key / value pairs to C<new> where the key is the name of the attribute
+you wish to set. Unless noted otherwise accessor methods for attributes also
+share the same name as the attribute.
+
+=head2 authors
+
+=over 4
+
+=item B<predicate> - has_authors
+
+=back
+
+Optional read-write value of type
+L<ArrayRef[HashRef]|Moose::Util::TypeConstraints> representing the authors of
+the class / role being documented. These values are passed directly to the view
+and the default TT view accepts entries in the following form
+(all fields optional)
+
+  {
+   name   => 'Guillermo Roditi',
+   handle => 'groditi',
+   email  => '<groditi@gmail.com>',
+  }
+
+=head2 ignored_method_metaclasses
+
+=over 4
+
+=item B<builder> - _build_ignored_method_metaclasses
+
+Default to the Moose and Class::MOP method metaclasses for generated methods,
+accessors, and constructors.
+
+=item B<clearer> - clear_ignored_method_metaclasses
+
+=item B<predicate> - has_ignored_method_metaclasses
+
+=back
+
+Required read-write lazy-building value of type
+L<HashRef|Moose::Util::TypeConstraints> where the keys are method metaclasses
+MooseX::AutoDoc should ignore when creating a method list.
+
+=head2 license_text
+
+=over 4
+
+=item B<builder> - _build_license_text
+
+=item B<clearer> - clear_license_text
+
+=item B<predicate> - has_license_text
+
+=back
+
+Required read-write lazy-building value of type
+L<Str|Moose::Util::TypeConstraints>. By default it will use the following text:
+
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
+=head2 tc_to_lib_map
+
+=over 4
+
+=item B<builder> - _build_tc_to_lib_map
+
+=item B<clearer> - clear_tc_to_lib_map
+
+=item B<predicate> - has_tc_to_lib_map
+
+=back
+
+Required read-write lazy-building value of type
+L<HashRef|Moose::Util::TypeConstraints>. The keys refer to type constraint
+names and the values to the module where the documentation available for that
+type is. Please note that if you are using MooseX::Types libraries the links
+will be automatically generated if the library class can be found (most cases).
+
+=head2 view
+
+=over 4
+
+=item B<builder> - _build_view
+
+Returns 'MooseX::AutoDoc::View::TT'
+
+=item B<clearer> - clear_view
+
+=item B<predicate> - has_view
+
+=back
+
+Required read-write lazy-building value of type AutoDocView. The AutoDocView
+type will accept an Object that isa L<MooseX::AutoDoc::View>. This attribute
+will attempt to coerce string values to instances by treating them as class
+names and attempting to load and instantiate a class of the same name.
+
+=head1 METHODS
+
+=head2 new $key => $value
+
+Instantiate a new object. Please refer to L</"ATTRIBUTES"> for a list of valid
+key options.
+
+=head2 generate_pod_for_class $class_name, $view_args
+
+Returns a string containing the Pod for the class. To make sure the data is
+accurate please make sure the class has not been loaded prior to this step.
+for more info see L</"NOTICE REGARDING ROLE CONSUMPTION">
+
+=head2 generate_pod_for_role $role_name, $view_args
+
+Returns a string containing the Pod for the role.To make sure the data is
+accurate please make sure the role has not been loaded prior to this step.
+for more info see L</"NOTICE REGARDING ROLE CONSUMPTION">
+
+=head2 _class_info $class_name
+
+Will return a hashref representing the documentation components of the class
+with the keys C<name>, C<superclasses>, C<attributes>, C<methods> and,
+C<attributes>; the latter four representing array refs of the hashrefs returned
+by L</"_superclass_info">, L</"_attribute_info">, L</"_method_info">, and
+L</"_consumed_role_info">
+
+=head2 _role_info $role_name
+
+Will return a hashref representing the documentation components of the role
+with the keys C<name>, C<attributes>, C<methods> and, C<attributes>; the
+latter three representing array refs of the hashrefs returned by
+L</"_attribute_info">, L</"_method_info">, and L</"_consumed_role_info">
+
+=head2 _attribute_info $attr
+
+Accepts one argument, an attribute metaclass instance.
+Returns a hashref representing the documentation components of the
+attribute with the keys C<name>, C<description>, and C<info>, a hashref
+of additional information.
+
+=head2 _consumed_role_info $role
+
+Accepts one argument, a role metaclass instance. Returns a hashref representing
+the documentation components of the role with the key C<name>.
+
+=head2 _method_info $method
+
+Accepts one argument, a method metaclass instance. Returns a hashref
+representing the documentation components of the role with the key C<name>.
+
+=head2 _superclass_info $class
+
+Accepts one argument, the metaclass instance of a superclass. Returns a hashref
+representing the documentation components of the role with the key C<name>.
+
+=head2 meta
+
+Retrieve the metaclass instance. Please see L<Moose::Meta::Class> and
+L<Class::MOP::Class> for more information.
+
+=head1 AUTHORS
+
+Guillermo Roditi (Guillermo Roditi) <groditi@cpan.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This library is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
+
+=cut

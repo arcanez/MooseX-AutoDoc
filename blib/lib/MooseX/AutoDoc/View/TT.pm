@@ -143,7 +143,7 @@ END;
 
 =over 4
 [% FOREACH pair IN attribute.info.pairs %]
-=item B<[% pair.key %]> -   [% pair.value %]
+=item B<[% pair.key %]> - [% pair.value %]
 [% END %]
 =back
 [%- END; %]

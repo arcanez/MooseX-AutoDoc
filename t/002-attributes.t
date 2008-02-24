@@ -23,7 +23,7 @@ my %attributes = map { $_ => $meta->get_attribute($_) }
      description => 'Optional read-only value'
     };
 
-  my $spec = $autodoc->attribute_info($attributes{attr1});
+  my $spec = $autodoc->_attribute_info($attributes{attr1});
 
   is_deeply($spec, $target);
 }
@@ -37,7 +37,7 @@ my %attributes = map { $_ => $meta->get_attribute($_) }
      description => 'Optional read-write value of type L<HashRef|Moose::Util::TypeConstraints>'
     };
 
-  my $spec = $autodoc->attribute_info($attributes{attr2});
+  my $spec = $autodoc->_attribute_info($attributes{attr2});
 
   is_deeply($spec, $target);
 }
@@ -51,7 +51,7 @@ my %attributes = map { $_ => $meta->get_attribute($_) }
      'description' => 'Optional read-write value of type L<ArrayRef[Str]|Moose::Util::TypeConstraints>'
     };
 
-  my $spec = $autodoc->attribute_info($attributes{attr3});
+  my $spec = $autodoc->_attribute_info($attributes{attr3});
 
   is_deeply($spec, $target);
 }
@@ -65,7 +65,7 @@ my %attributes = map { $_ => $meta->get_attribute($_) }
      'description' => 'Required read-write value of type L<ArrayRef[Str]|Moose::Util::TypeConstraints>'
     };
 
-  my $spec = $autodoc->attribute_info($attributes{attr4});
+  my $spec = $autodoc->_attribute_info($attributes{attr4});
 
   is_deeply($spec, $target);
 }
@@ -79,7 +79,7 @@ my %attributes = map { $_ => $meta->get_attribute($_) }
      'description' => 'Required read-write value of type L<ArrayRef[Str]|Moose::Util::TypeConstraints> that will be automatically dereferenced by the reader / accessor'
     };
 
-  my $spec = $autodoc->attribute_info($attributes{attr5});
+  my $spec = $autodoc->_attribute_info($attributes{attr5});
 
   is_deeply($spec, $target);
 }
@@ -97,7 +97,7 @@ my %attributes = map { $_ => $meta->get_attribute($_) }
      'description' => 'Required read-write lazy-building value'
     };
 
-  my $spec = $autodoc->attribute_info($attributes{attr6});
+  my $spec = $autodoc->_attribute_info($attributes{attr6});
 
   is_deeply($spec, $target);
 }
@@ -115,7 +115,7 @@ my %attributes = map { $_ => $meta->get_attribute($_) }
    'description' => 'Optional value'
   };
 
-  my $spec = $autodoc->attribute_info($attributes{attr7});
+  my $spec = $autodoc->_attribute_info($attributes{attr7});
 
   is_deeply($spec, $target);
 }
