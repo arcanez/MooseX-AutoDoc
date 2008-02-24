@@ -1,0 +1,49 @@
+#!/usr/bin/perl -w
+
+package MooseDoc;
+use lib 'lib';
+use Moose;
+use MooseX::AutoDoc;
+
+with 'MooseX::SimpleConfig';
+with 'MooseX::Getopt';
+
+has lib    => (is => 'rw', isa => 'ArrayRef', predicate => 'has_lib');
+has append => (is => 'rw', isa => 'Bool', required => 1, default => sub { 0 });
+has authors => (is => 'rw', isa => 'HashRef', predicate => 'has_authors');
+has '+configfile' => ( default => '~/.moosedoc' ) if -e '~/.moosedoc';
+
+has _autodoc => (is => 'ro', isa => 'MooseX::AutoDoc', lazy_build => 1);
+
+sub _build__autodoc{
+  my $self = shift;
+  MooseX::AutoDoc->new
+      (
+       $self->has_authors ? (authors => $self->authors) : ()
+      );
+}
+
+sub get_docs_for{
+  my ($self, $package) = @_;
+
+  $self->_autodoc->generate_pod_for( $package );
+}
+
+1;
+
+package main;
+
+my $app = MooseDoc->new_with_options();
+push(@INC, @{ $app->lib }) if $app->has_lib;
+push(@INC, './lib') if ! $app->has_lib && -e './lib' && -d './lib';
+
+#{
+#  local $, = "\n"; print @INC;
+#}
+my @packages = @{ $app->extra_argv };
+for my $package (@packages){
+
+  my $docs = $app->get_docs_for( $package );
+  #print or append logic goes here.
+  print $docs;
+}
