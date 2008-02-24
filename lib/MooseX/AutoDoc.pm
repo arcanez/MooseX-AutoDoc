@@ -394,7 +394,7 @@ names and attempting to load and instantiate a class of the same name.
 
 =head1 METHODS
 
-=head2 new $key => $value
+=head2 new key => $value
 
 Instantiate a new object. Please refer to L</"ATTRIBUTES"> for a list of valid
 key options.

@@ -1,5 +1,10 @@
 package MooseX::AutoDoc::View::TT;
 
+#TODO:
+#    Versions
+#    POD block for RT / Bugs / etc
+#    MooseX::Methods support
+
 use Moose;
 use Scalar::Util qw/blessed/;
 use Template;
@@ -154,7 +159,7 @@ END;
  $blocks->{methods_block} = q^
 =head1 METHODS
 
-=head2 new $key => $value
+=head2 new key => $value
 
 Instantiate a new object. Please refer to L</"ATTRIBUTES"> for a list of valid
 key options.
