@@ -70,152 +70,90 @@ sub _build_license_text {
 }
 
 #make the actual POD
-sub generate_pod_for_role {
-  my ($self, $role, $view_args) = @_;
+sub generate_pod_for {
+  my ($self, $package, $view_args) = @_;
 
-  carp("${role} is already loaded. This will cause inacurate output.".
-       "if ${role} is the consumer of any roles.")
-    if Class::MOP::is_class_loaded( $role );
+  carp("${package} is already loaded. This will cause inacurate output.".
+       "if ${package} is the consumer of any roles.")
+    if Class::MOP::is_class_loaded( $package );
 
-  my $spec = $self->role_info($role);
+  my $spec = $self->package_info($package);
+  my $key = $package->meta->isa("Moose::Meta::Role") ? 'role' : 'class';
   my $vars = {
-              role    => $spec,
+              $key    => $spec,
               license => $self->license_text,
               authors => $self->has_authors ? $self->authors : [],
              };
-  return $self->view->render_role($vars, $view_args);
+  my $render = "render_${key}";
+  return $self->view->$render($vars, $view_args);
 }
-
-#make the actual POD
-sub generate_pod_for_class {
-  my ($self, $class, $view_args) = @_;
-
-  carp("${class} is already loaded. This will cause inacurate output.".
-       "if ${class} is the consumer of any roles.")
-    if Class::MOP::is_class_loaded( $class );
-
-  my $spec = $self->class_info($class);
-  my $vars = {
-              class   => $spec,
-              license => $self->license_text,
-              authors => $self->has_authors ? $self->authors : [],
-             };
-
-  return $self->view->render_class($vars, $view_args);
-}
-
 
 # *_info methods
-sub _role_info {
-  my ($self, $role) = @_;
+sub _package_info {
+  my($self, $package) = @_;
 
-  my (@roles_to_apply, $rmeta, $original_apply);
-  {    #intercept role application so we can accurately generate
-       #method and attribute information for the parent class.
-       #this is fragile, but there is not better way that i am aware of
+  #intercept role application so we can accurately generate
+  #method and attribute information for the parent class.
+  #this is fragile, but there is not better way that i am aware of
+  my $rmeta = Moose::Meta::Role->meta;
+  $rmeta->make_mutable if $rmeta->is_immutable;
+  my $original_apply = $rmeta->get_method("apply")->body;
+  $rmeta->remove_method("apply");
+  my @roles_to_apply;
+  $rmeta->add_method("apply", sub{push(@roles_to_apply, [@_])});
+  #load the package with the hacked Moose::Meta::Role
+  eval { Class::MOP::load_class($package); };
+  confess "Failed to load package ${package} $@" if $@;
 
-    $rmeta = Moose::Meta::Role->meta;
-    $rmeta->make_mutable if $rmeta->is_immutable;
-    $original_apply = $rmeta->get_method("apply")->body;
-    $rmeta->remove_method("apply");
-    $rmeta->add_method("apply", sub{push(@roles_to_apply, [@_])});
-
-    eval { Class::MOP::load_class($role); };
-    confess "Failed to load class ${role} $@" if $@;
+  #get on with analyzing the  package
+  my $meta = $package->meta;
+  my $spec = {};
+  my ($class, $is_role);
+  if($package->meta->isa('Moose::Meta::Role')){
+    $is_role = 1;
+    # we need to apply the role to a class to be able to properly introspect it
+    $class = Moose::Meta::Class->create_anon_class;
+    $original_apply->($meta, $class);
+  } else {
+    #roles don't have superclasses ...
+    $class = $meta;
+    my @superclasses = map{ $_->meta }
+      grep { $_ ne 'Moose::Object' } $meta->superclasses;
+    my @superclass_specs = map{ $self->_superclass_info($_) } @superclasses;
+    $spec->{superclasses} = \@superclass_specs;
   }
 
-  my $meta =  $role->meta;
-  my $anon = Moose::Meta::Class->create_anon_class;
-  $original_apply->($meta, $anon);
-
-  my @attributes = map{ $anon->get_attribute($_) } sort $anon->get_attribute_list;
-
-  my @methods =
+  #these two are common to both roles and classes
+  my @attributes = map{ $class->get_attribute($_) } sort $class->get_attribute_list;
+  my @methods    =
     grep{ ! exists $self->ignored_method_metaclasses->{$_->meta->name} }
-      map { $anon->get_method($_) }
-        grep { $_ ne 'meta' }    #it wasnt getting filtered on the anon class..
-          sort $anon->get_method_list;
-  my @method_specs     = map{ $self->_method_info($_)        } @methods;
-  my @attribute_specs  = map{ $self->_attribute_info($_)     } @attributes;
+      map { $class->get_method($_) }
+        grep { $_ ne 'meta' } sort $class->get_method_list;
 
-  { #fix Moose::Meta::Role and apply the roles that were delayed
-    $rmeta->remove_method("apply");
-    $rmeta->add_method("apply", $original_apply);
-    $rmeta->make_immutable;
-    shift(@$_)->apply(@$_) for @roles_to_apply;
-  }
+  my @method_specs     = map{ $self->_method_info($_)    } @methods;
+  my @attribute_specs  = map{ $self->_attribute_info($_) } @attributes;
 
-  my @roles =
-    sort{ $a->name cmp $b->name }
-      map { $_->isa("Moose::Meta::Role::Composite") ? @{$_->get_roles} : $_ }
-        @{ $meta->get_roles };
+  #fix Moose::Meta::Role and apply the roles that were delayed
+  $rmeta->remove_method("apply");
+  $rmeta->add_method("apply", $original_apply);
+  $rmeta->make_immutable;
+  #we apply roles to be able to figure out which ones we are using although I
+  #could just cycle through $_->[0] for @roles_to_apply;
+  shift(@$_)->apply(@$_) for @roles_to_apply;
 
-  my @role_specs = map{ $self->_consumed_role_info($_) } @roles;
-
-  my $spec = {
-              name         => $meta->name,
-              roles        => \ @role_specs,
-              methods      => \ @method_specs,
-              attributes   => \ @attribute_specs,
-             };
-
-  return $spec;
-}
-
-
-sub _class_info {
-  my ($self, $class) = @_;
-
-  my (@roles_to_apply, $rmeta, $original_apply);
-  {    #intercept role application so we can accurately generate
-       #method and attribute information for the parent class.
-       #this is fragile, but there is not better way that i am aware of
-
-    $rmeta = Moose::Meta::Role->meta;
-    $rmeta->make_mutable if $rmeta->is_immutable;
-    $original_apply = $rmeta->get_method("apply")->body;
-    $rmeta->remove_method("apply");
-    $rmeta->add_method("apply", sub{push(@roles_to_apply, [@_])});
-
-    eval { Class::MOP::load_class($class); };
-    confess "Failed to load class ${class} $@" if $@;
-  }
-
-  my $meta = $class->meta;
-
-  my @attributes   = map{ $meta->get_attribute($_) } sort $meta->get_attribute_list;
-  my @superclasses = map{ $_->meta }
-    grep { $_ ne 'Moose::Object' } $meta->superclasses;
-
-  my @methods =
-    grep{ ! exists $self->ignored_method_metaclasses->{$_->meta->name} }
-      map { $meta->get_method($_) }
-        grep { $_ ne 'meta' }    #it wasnt getting filtered on the anon class..
-          sort $meta->get_method_list;
-
-  my @method_specs     = map{ $self->_method_info($_)        } @methods;
-  my @attribute_specs  = map{ $self->_attribute_info($_)     } @attributes;
-  my @superclass_specs = map{ $self->_superclass_info($_)    } @superclasses;
-
-  { #fix Moose::Meta::Role and apply the roles that were delayed
-    $rmeta->remove_method("apply");
-    $rmeta->add_method("apply", $original_apply);
-    $rmeta->make_immutable;
-    shift(@$_)->apply(@$_) for @roles_to_apply;
-  }
-
+  #Moose::Meta::Role and Class have different methods to get consumed roles..
+  #make sure we break up composite roles as well to get better names and nicer
+  #linking to packages.
   my @roles = sort{ $a->name cmp $b->name }
-    map { $_->isa("Moose::Meta::Role::Composite") ? @{$_->get_roles} : $_ }
-      @{ $meta->roles };
+    map { $_->isa("Moose::Meta::Role::Composite") ? @{ $_->get_roles } : $_ }
+      @{ $is_role ? $meta->get_roles : $meta->roles };
   my @role_specs = map{ $self->_consumed_role_info($_) } @roles;
 
-  my $spec = {
-              name         => $meta->name,
-              roles        => \ @role_specs,
-              methods      => \ @method_specs,
-              attributes   => \ @attribute_specs,
-              superclasses => \ @superclass_specs,
-             };
+  #fill up the spec
+  $spec->{name}       = $meta->name;
+  $spec->{roles}      = \ @role_specs;
+  $spec->{methods}    = \ @method_specs;
+  $spec->{attributes} = \ @attribute_specs;
 
   return $spec;
 }
@@ -317,7 +255,7 @@ __END__;
 
 =head1 NAME
 
-MooseX::AutoDoc - Automatically generate documentation for Moose-based classes
+MooseX::AutoDoc - Automatically generate documentation for Moose-based packages
 
 =head1 SYNOPSYS
 
@@ -334,22 +272,24 @@ MooseX::AutoDoc - Automatically generate documentation for Moose-based classes
         ],
       );
 
-    my $class_pod = $autodoc->generate_pod_for_class("MyClass");
-    my $role_pod  = $autodoc->generate_pod_for_role("MyRole");
+    my $class_pod = $autodoc->generate_pod_for("MyClass");
+    my $role_pod  = $autodoc->generate_pod_for("MyRole");
 
 =head1 DESCRIPTION
 
 MooseX::AutoDoc allows you to automatically generate POD documentation from
-your Moose based objects by introspecting them and creating a
+your Moose based objects by introspecting them and creating a POD skeleton
+with extra information where it can be infered through the MOP.
 
 =head1 NOTICE REGARDING ROLE CONSUMPTION
 
 To accurantely detect which methods and attributes are part of the class / role
-being examined and which are part of a consumed role the
-L</"generate_pod_for_role"> and  L</"generate_pod_for_class"> methods need to
-delay role consumption. If your role or class has been loaded prior to calling
-these methods you run a risk of recieving inacurate data and a warning will be
-emitted.
+being examined and which are part of a consumed role the L</"generate_pod_for">
+method need to delay role consumption. If your role or class has been loaded
+prior to calling these methods you run a risk of recieving inacurate data and
+a warning will be emitted. This is due to the fact that once a role is applied
+there is no way to tell which attributes and methods came from the class and
+which came from the role.
 
 =head1 ATTRIBUTES
 
@@ -459,39 +399,28 @@ names and attempting to load and instantiate a class of the same name.
 Instantiate a new object. Please refer to L</"ATTRIBUTES"> for a list of valid
 key options.
 
-=head2 generate_pod_for_class $class_name, $view_args
+=head2 generate_pod_for $package_name, $view_args
 
-Returns a string containing the Pod for the class. To make sure the data is
-accurate please make sure the class has not been loaded prior to this step.
+Returns a string containing the Pod for the package. To make sure the data is
+accurate please make sure the package has not been loaded prior to this step.
 for more info see L</"NOTICE REGARDING ROLE CONSUMPTION">
 
-=head2 generate_pod_for_role $role_name, $view_args
+=head2 _package_info $package_name
 
-Returns a string containing the Pod for the role.To make sure the data is
-accurate please make sure the role has not been loaded prior to this step.
-for more info see L</"NOTICE REGARDING ROLE CONSUMPTION">
-
-=head2 _class_info $class_name
-
-Will return a hashref representing the documentation components of the class
-with the keys C<name>, C<superclasses>, C<attributes>, C<methods> and,
-C<attributes>; the latter four representing array refs of the hashrefs returned
-by L</"_superclass_info">, L</"_attribute_info">, L</"_method_info">, and
-L</"_consumed_role_info">
-
-=head2 _role_info $role_name
-
-Will return a hashref representing the documentation components of the role
-with the keys C<name>, C<attributes>, C<methods> and, C<attributes>; the
-latter three representing array refs of the hashrefs returned by
-L</"_attribute_info">, L</"_method_info">, and L</"_consumed_role_info">
+Will return a hashref representing the documentation components of the package
+with the keys C<name>,  C<attributes>, C<methods>, C<attributes> and--if the
+case the package is a class--C<superclasses>; the latter four are array refs
+of the hashrefs returned by L</"_superclass_info">, L</"_attribute_info">,
+L</"_method_info">, and L</"_consumed_role_info"> respectively.
 
 =head2 _attribute_info $attr
 
 Accepts one argument, an attribute metaclass instance.
 Returns a hashref representing the documentation components of the
 attribute with the keys C<name>, C<description>, and C<info>, a hashref
-of additional information.
+of additional information. If you have set the documentation attribute of
+your attributes the documentation text will be appended to the auto-generated
+description.
 
 =head2 _consumed_role_info $role
 
