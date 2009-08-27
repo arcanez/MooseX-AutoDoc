@@ -94,7 +94,7 @@ my %attributes = map { $_ => $meta->get_attribute($_) }
                 'clearer' => 'clear_attr6'
                },
      'name' => 'attr6',
-     'description' => 'Required read-write lazy-building value'
+     'description' => 'Optional read-write lazy-building value'
     };
 
   my $spec = $autodoc->_attribute_info($attributes{attr6});
