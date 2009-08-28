@@ -9,8 +9,9 @@ abstract 'Automatically generate documentation stubs for Moose-based classes.';
 all_from 'lib/MooseX/AutoDoc.pm';
 
 # Specific dependencies
-requires 'Moose'     => '0.89';
-requires 'Template';  #version TBD
+requires 'Moose',                '0.89';
+requires 'namespace::autoclean', '0.08';
+requires 'Template';
 
 build_requires 'Test::More' => 0;
 

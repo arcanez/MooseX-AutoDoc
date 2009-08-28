@@ -6,6 +6,7 @@ use Class::MOP;
 use Moose::Meta::Role;
 use Moose::Meta::Class;
 use Scalar::Util qw/blessed/;
+use namespace::autoclean;
 
 #  Create a special TypeConstraint for the View so you can just set it
 # with a class name and it'll DWIM
