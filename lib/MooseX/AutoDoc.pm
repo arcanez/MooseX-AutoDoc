@@ -258,7 +258,7 @@ __END__;
 
 MooseX::AutoDoc - Automatically generate documentation for Moose-based packages
 
-=head1 SYNOPSYS
+=head1 SYNOPSIS
 
     use MooseX::AutoDoc;
     my $autodoc = MooseX::AutoDoc->new
