@@ -77,7 +77,7 @@ sub _build_class_template_blocks{
 ^;
 
   $blocks->{synopsys_block} = q^
-=head1 SYNOPSYS
+=head1 SYNOPSIS
 
     use [% class.name %];
     #TODO
@@ -230,7 +230,7 @@ sub _build_role_template_blocks{
 ^;
 
   $blocks->{synopsys_block} = q^
-=head1 SYNOPSYS
+=head1 SYNOPSIS
 
     use Moose;
     with '[% role.name %]';
