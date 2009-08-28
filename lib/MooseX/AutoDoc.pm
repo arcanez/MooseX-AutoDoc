@@ -94,31 +94,18 @@ sub generate_pod_for {
 sub _package_info {
   my($self, $package) = @_;
 
-  #intercept role application so we can accurately generate
-  #method and attribute information for the parent class.
-  #this is fragile, but there is not better way that i am aware of
-  my $rmeta = Moose::Meta::Role->meta;
-  $rmeta->make_mutable if $rmeta->is_immutable;
-  my $original_apply = $rmeta->get_method("apply")->body;
-  $rmeta->remove_method("apply");
-  my @roles_to_apply;
-  $rmeta->add_method("apply", sub{push(@roles_to_apply, [@_])});
-  #load the package with the hacked Moose::Meta::Role
+  #load the package
   eval { Class::MOP::load_class($package); };
   confess "Failed to load package ${package} $@" if $@;
 
   #get on with analyzing the  package
   my $meta = $package->meta;
   my $spec = {};
-  my ($class, $is_role);
+  my $is_role;
   if($package->meta->isa('Moose::Meta::Role')){
     $is_role = 1;
-    # we need to apply the role to a class to be able to properly introspect it
-    $class = Moose::Meta::Class->create_anon_class;
-    $original_apply->($meta, $class);
   } else {
     #roles don't have superclasses ...
-    $class = $meta;
     my @superclasses = map{ $_->meta }
       grep { $_ ne 'Moose::Object' } $meta->superclasses;
     my @superclass_specs = map{ $self->_superclass_info($_) } @superclasses;
@@ -126,22 +113,26 @@ sub _package_info {
   }
 
   #these two are common to both roles and classes
-  my @attributes = map{ $class->get_attribute($_) } sort $class->get_attribute_list;
-  my @methods    =
-    grep{ ! exists $self->ignored_method_metaclasses->{$_->meta->name} }
-      map { $class->get_method($_) }
-        grep { $_ ne 'meta' } sort $class->get_method_list;
+  my @attributes;
+  foreach ($meta->get_attribute_list) {
+    my $attr = $meta->get_attribute($_);
+    $attr = Moose::Meta::Attribute->new($_, %$attr) if ref($attr) eq 'HASH';
+    next if $attr->definition_context && $attr->definition_context->{package} ne $package;
+    push @attributes, $attr;
+  }
+
+  my @methods;
+  foreach ($meta->get_method_list) {
+    my $meth = $meta->get_method($_); 
+    next if any { $meth->isa($_) } keys %{$self->ignored_method_metaclasses};
+    next if $meth->name eq 'meta';
+    next if $meth->original_method && $meth->original_method->{package_name} ne $package;
+    next if $meth->package_name ne $package;
+    push @methods, $meth;
+  }
 
   my @method_specs     = map{ $self->_method_info($_)    } @methods;
   my @attribute_specs  = map{ $self->_attribute_info($_) } @attributes;
-
-  #fix Moose::Meta::Role and apply the roles that were delayed
-  $rmeta->remove_method("apply");
-  $rmeta->add_method("apply", $original_apply);
-  $rmeta->make_immutable;
-  #we apply roles to be able to figure out which ones we are using although I
-  #could just cycle through $_->[0] for @roles_to_apply;
-  shift(@$_)->apply(@$_) for @roles_to_apply;
 
   #Moose::Meta::Role and Class have different methods to get consumed roles..
   #make sure we break up composite roles as well to get better names and nicer
@@ -161,7 +152,7 @@ sub _package_info {
 }
 
 sub _attribute_info{
-  my($self, $attr) = @_;;
+  my($self, $attr) = @_; 
   my $attr_name = $attr->name;
   my $spec = { name => $attr_name };
   my $info = $spec->{info} = {};
