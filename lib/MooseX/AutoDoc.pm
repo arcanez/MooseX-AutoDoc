@@ -5,7 +5,8 @@ use Carp;
 use Class::MOP;
 use Moose::Meta::Role;
 use Moose::Meta::Class;
-use Scalar::Util qw/blessed/;
+use Scalar::Util qw(blessed);
+use List::MoreUtils qw(any);
 use namespace::autoclean;
 
 #  Create a special TypeConstraint for the View so you can just set it
