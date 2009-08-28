@@ -18,4 +18,4 @@ my $target = {
               attributes => [],
              };
 
-is_deeply($target, $spec);
+is_deeply($spec, $target);

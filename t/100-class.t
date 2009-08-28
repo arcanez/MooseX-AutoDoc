@@ -19,4 +19,5 @@ my $target = {
                superclasses => [],
                methods => [{ name => 'bar'},{ name => 'foo'}],
               };
-is_deeply($target, $spec);
+
+is_deeply($spec, $target);

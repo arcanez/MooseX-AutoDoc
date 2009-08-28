@@ -25,4 +25,5 @@ my $target = {
                              },
                             ],
              };
-is_deeply($target, $spec);
+
+is_deeply($spec, $target);

@@ -23,4 +23,5 @@ my $target = {
                  name => 'attr8',
                 }]
               };
-is_deeply($target, $spec);
+
+is_deeply($spec, $target);
